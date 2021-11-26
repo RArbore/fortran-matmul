@@ -2,6 +2,7 @@
 #define CUTOFF 1024
 
 program matmul
+  use omp_lib
   implicit none
 
   integer, dimension(8) :: seed
@@ -20,23 +21,24 @@ program matmul
   end do
   
   call system_clock(before)
-  c = matmul_func(a, b, SIZE, SIZE / 2)
+  c = matmul_func(a, b, SIZE, SIZE / 2, 0)
   call system_clock(after)
 
   print *, "Time: ", real(after - before) / real(rate)
   
 contains
 
-recursive function matmul_func(a, b, n, h) result(c)
+recursive function matmul_func(a, b, n, h, d) result(c)
   implicit none
 
-  integer :: i, j, k, hp, hh
-  integer, intent(in) :: n, h
+  integer :: i, j, k, hp, hh, dp
+  integer, intent(in) :: n, h, d
   real, dimension(n, n), intent(in) :: a, b
   real, dimension(h, h) :: a11, a12, a21, a22, b11, b12, b21, b22, m1, m2, m3, m4, m5, m6, m7
   real, dimension(n, n) :: c
   hp = h + 1
   hh = h / 2
+  dp = d + 1
 
   if (n < CUTOFF) then
      c = 0
@@ -48,6 +50,7 @@ recursive function matmul_func(a, b, n, h) result(c)
         end do
      end do
   else
+     !$OMP PARALLEL
      a11 = a(1:h, 1:h)
      a12 = a(1:h, hp:n)
      a21 = a(hp:n, 1:h)
@@ -56,17 +59,20 @@ recursive function matmul_func(a, b, n, h) result(c)
      b12 = b(1:h, hp:n)
      b21 = b(hp:n, 1:h)
      b22 = b(hp:n, hp:n)
+     !$OMP END PARALLEL
      !c(1:h, 1:h) = matmul_func(a11, b11, h, hh) + matmul_func(a12, b21, h, hh)
      !c(1:h, hp:n) = matmul_func(a11, b12, h, hh) + matmul_func(a12, b22, h, hh)
      !c(hp:n, 1:h) = matmul_func(a21, b11, h, hh) + matmul_func(a22, b21, h, hh)
      !c(hp:n, hp:n) = matmul_func(a22, b12, h, hh) + matmul_func(a22, b22, h, hh)
-     m1 = matmul_func(a11 + a22, b11 + b22, h, hh)
-     m2 = matmul_func(a21 + a22, b11, h, hh)
-     m3 = matmul_func(a11, b12 - b22, h, hh)
-     m4 = matmul_func(a22, b21 - b11, h, hh)
-     m5 = matmul_func(a11 + a12, b22, h, hh)
-     m6 = matmul_func(a21 - a11, b11 + b12, h, hh)
-     m7 = matmul_func(a12 - a22, b21 + b22, h, hh)
+     !$OMP PARALLEL
+     m1 = matmul_func(a11 + a22, b11 + b22, h, hh, dp)
+     m2 = matmul_func(a21 + a22, b11, h, hh, dp)
+     m3 = matmul_func(a11, b12 - b22, h, hh, dp)
+     m4 = matmul_func(a22, b21 - b11, h, hh, dp)
+     m5 = matmul_func(a11 + a12, b22, h, hh, dp)
+     m6 = matmul_func(a21 - a11, b11 + b12, h, hh, dp)
+     m7 = matmul_func(a12 - a22, b21 + b22, h, hh, dp)
+     !$OMP END PARALLEL
      c(1:h, 1:h) = m1 + m4 - m5 + m7
      c(1:h, hp:n) = m3 + m5
      c(hp:n, 1:h) = m2 + m4
