@@ -1,4 +1,4 @@
-#define SIZE 2048
+#define SIZE 8192
 #define CUTOFF 1024
 
 program matmul
@@ -33,7 +33,7 @@ recursive function matmul_func(a, b, n, h) result(c)
   integer :: i, j, k, hp, hh
   integer, intent(in) :: n, h
   real, dimension(n, n), intent(in) :: a, b
-  real, dimension(h, h) :: a11, a12, a21, a22, b11, b12, b21, b22
+  real, dimension(h, h) :: a11, a12, a21, a22, b11, b12, b21, b22, m1, m2, m3, m4, m5, m6, m7
   real, dimension(n, n) :: c
   hp = h + 1
   hh = h / 2
@@ -56,10 +56,21 @@ recursive function matmul_func(a, b, n, h) result(c)
      b12 = b(1:h, hp:n)
      b21 = b(hp:n, 1:h)
      b22 = b(hp:n, hp:n)
-     c(1:h, 1:h) = matmul_func(a11, b11, h, hh) + matmul_func(a12, b21, h, hh)
-     c(1:h, hp:n) = matmul_func(a11, b12, h, hh) + matmul_func(a12, b22, h, hh)
-     c(hp:n, 1:h) = matmul_func(a21, b11, h, hh) + matmul_func(a22, b21, h, hh)
-     c(hp:n, hp:n) = matmul_func(a22, b12, h, hh) + matmul_func(a22, b22, h, hh)
+     !c(1:h, 1:h) = matmul_func(a11, b11, h, hh) + matmul_func(a12, b21, h, hh)
+     !c(1:h, hp:n) = matmul_func(a11, b12, h, hh) + matmul_func(a12, b22, h, hh)
+     !c(hp:n, 1:h) = matmul_func(a21, b11, h, hh) + matmul_func(a22, b21, h, hh)
+     !c(hp:n, hp:n) = matmul_func(a22, b12, h, hh) + matmul_func(a22, b22, h, hh)
+     m1 = matmul_func(a11 + a22, b11 + b22, h, hh)
+     m2 = matmul_func(a21 + a22, b11, h, hh)
+     m3 = matmul_func(a11, b12 - b22, h, hh)
+     m4 = matmul_func(a22, b21 - b11, h, hh)
+     m5 = matmul_func(a11 + a12, b22, h, hh)
+     m6 = matmul_func(a21 - a11, b11 + b12, h, hh)
+     m7 = matmul_func(a12 - a22, b21 + b22, h, hh)
+     c(1:h, 1:h) = m1 + m4 - m5 + m7
+     c(1:h, hp:n) = m3 + m5
+     c(hp:n, 1:h) = m2 + m4
+     c(hp:n, hp:n) = m1 - m2 + m3 + m6
   end if
 
 end function matmul_func
